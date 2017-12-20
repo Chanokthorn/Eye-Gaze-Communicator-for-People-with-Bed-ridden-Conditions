@@ -1,0 +1,215 @@
+##### this code is run on Jupyter
+import dlib
+import numpy as np
+import cv2
+
+#returns coordinate of circles related to the given image
+def findIris(eye):
+    _,eye_img = cv2.threshold(eye,110,255,cv2.THRESH_BINARY)
+    cv2.imshow('bw',eye_img)
+    eye = cv2.medianBlur(eye_img, 5)
+    eye = cv2.Canny(eye,100,100)
+    rows = eye.shape[0]
+    circles = cv2.HoughCircles(eye, cv2.HOUGH_GRADIENT, 1, rows / 2,param1=100, param2=10,minRadius=1, maxRadius=40)
+    if(circles == None): return (None,eye_img)
+    cv2.imshow('Eye',eye)
+    return (circles[0,0],eye_img)
+def averageFromBuffer(data,coordinate):
+    for i in range (data.shape[0]-1):
+        data[i,:] = data[i+1,:]
+    data[data.shape[0]-1,:] = np.array([coordinate[0],coordinate[1]])
+    width = np.sum(data[:,0])/data.shape[0]
+    height = np.sum(data[:,1])/data.shape[0]
+    return (data,(width,height))
+def calibrate(data):
+    width = np.sum(data[:,0])/data.shape[0]
+    height = np.sum(data[:,1])/data.shape[0]
+    return (width,height)
+def calculateRelative(eye,coordinate):
+    width = int(coordinate[0] * eye.shape[1])
+    height = int(coordinate[1] * eye.shape[0])
+    return (width,height)
+def detectGaze(default, coordinate):
+    if(coordinate[0] > default[0] + 0.1): return 'gaze_left'
+    elif(coordinate[0] < default[0] - 0.1): return 'gaze_right'
+    else: return 'gaze_center'
+def eyeSum(eye):
+    eye = eye[int(eye.shape[0]/2):eye.shape[0],:]
+    return np.sum(np.sum(eye))
+def eyeSumAverage(data):
+    return int(np.sum(data[:,:])/data.shape[0])
+def detectUpwardGaze(defaultSum, currentSum):
+    if(currentSum > defaultSum * 1.3): return 'upward'
+    else: return 'normal'
+ 
+import sys
+sys.path.insert(0, "/opt/intel/mkl/lib/intel64")
+sys.path.insert(0, "/usr/local/lib/python3.6/site-packages")
+ ######### first part stops here
+import dlib
+import numpy as np
+import cv2
+import microgear.client as microgear
+import logging
+import time
+ 
+def dlibFacelandmarkToNumpy(shape, dtype="int"):
+    coords = np.zeros((68, 2), dtype=dtype)
+ 
+    for i in range(0, 68):
+        coords[i] = (shape.part(i).x, shape.part(i).y)
+ 
+    return coords
+ 
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+appid = 'Helloworld01'
+gearkey = 'CPJdTU6aR6CzHmi'
+gearsecret =  'sap8rSrrth6ywnlxxy4xYLADM'
+
+microgear.create(gearkey,gearsecret,appid, {'debugmode': True, 'scope': "r:/outdoor/temp,w:/outdoor/valve,name:logger,chat:plant", 'alias': "logger"})
+# def connection():
+#     logging.info("Now I am connected with netpie")
+
+# def subscription(topic,message):
+#     logging.info(topic+" "+message)
+
+# def disconnect():
+#     logging.info("disconnected")
+
+# microgear.setalias("doraemon")
+# microgear.on_connect = connection
+# microgear.on_message = subscription
+# microgear.on_disconnect = disconnect
+# microgear.subscribe("/mails")
+# microgear.connect(True)
+microgear.connect()
+# while True:
+#     microgear.chat("doraemon","Hello world. "+str(int(time.time())))
+
+
+
+
+videoInput = cv2.VideoCapture(0)
+web = 'DigitalOUTPUT_HTML_web'
+# loop over the frames from the video stream
+#buffers
+left_iris_buffer_size = 5
+left_iris_buffer_count = 0
+left_iris_buffer = np.ndarray((4,2))
+#calibrations
+calibrate_count = 0
+calibrate_amount = 40
+calibrate_data = np.ndarray((calibrate_amount,2))
+sum_data = np.ndarray((calibrate_amount,1))
+calibrated = False
+while True:
+ 
+    _,frame = videoInput.read()
+   
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+ 
+    rects = detector(gray, 0)
+    # loop over the face detections
+    face_found = False
+    for rect in rects:
+        #initial booleans
+        left_iris_found = False
+        right_iris_found = False
+        
+        face_found = True
+        # determine the facial landmarks for the face region, then
+        # convert the facial landmark (x, y)-coordinates to a NumPy
+        # array
+        shape = predictor(gray, rect)
+        #print(shape)
+        shape = dlibFacelandmarkToNumpy(shape)
+ 
+        # loop over the (x, y)-coordinates for the facial landmarks
+        # and draw them on the image
+ 
+        xL,yL,wL,hL = cv2.boundingRect(shape[36:41,:])
+        left_eye = gray[yL:yL+hL,xL:xL+wL]
+        left_eye_color = frame[yL:yL+hL,xL:xL+wL]
+        cv2.rectangle(frame,(xL,yL),(xL+wL,yL+hL),(0,255,0),2)
+ 
+        xR,yR,wR,hR = cv2.boundingRect(shape[42:47,:])
+        right_eye = gray[yR:yR+hR,xR:xR+wR]
+        right_eye_color = frame[yR:yR+hR,xR:xR+wR]
+        cv2.rectangle(frame,(xR,yR),(xR+wR,yR+hR),(0,255,0),2)
+        #for (x, y) in shape:
+        #   cv2.circle(frame, (x, y), 1, (0, 0, 255), -1)
+        
+        #check for iris
+        (left_iris,left_eye_bw) = findIris(left_eye)
+        if(left_iris != None): left_iris_found = True
+#         right_iris = findIris(right_eye)
+#         if(right_iris != None): right_iris_found = True
+        
+        current_left_eye_sum = eyeSum(left_eye_bw)
+        #draw the iris
+        if(calibrated):
+            gazeVertical = detectUpwardGaze(sum_average,current_left_eye_sum)
+            if(gazeVertical == 'upward'):
+                microgear.chat("DigitalOUTPUT_HTML_web","camera_up")
+                print('upward')
+                continue
+        if(left_iris_found):
+            
+#             print(left_iris[0],left_eye.shape[1], left_iris[1], left_eye.shape[0])
+            left_iris_center = (left_iris[0]/left_eye.shape[1],left_iris[1]/left_eye.shape[0])
+            if(left_iris_buffer_count < left_iris_buffer_size):
+                left_iris_buffer_count += 1
+            else:
+                (left_iris_buffer,left_iris_center) = averageFromBuffer(left_iris_buffer,left_iris_center)
+            relative_left_iris_center = calculateRelative(left_eye, left_iris_center)
+            cv2.circle(left_eye_color, relative_left_iris_center, 1, (255, 0, 255), 3)
+            if(calibrate_count < calibrate_amount):
+                sum_data[calibrate_count,0] = current_left_eye_sum
+                calibrate_data[calibrate_count,:] = left_iris_center
+                calibrate_count += 1
+            elif(calibrate_count == calibrate_amount):
+#                 calibrate_data[calibrate_count,:] = left_iris_center
+#                 print(calibrate_data)
+                sum_average = eyeSumAverage(sum_data)
+                left_iris_default = calibrate(calibrate_data)
+                print(left_iris_default)
+                calibrated = True
+                print('calibrated')
+                print('sum average:',sum_average)
+                calibrate_count += 1
+#         if(right_iris_found): cv2.circle(left_eye, (left_iris[0],left_iris[1]), left_iris[2], (255, 0, 255), 2)
+#         if(calibrated): print('current sum',current_left_eye_sum)
+        if(calibrated and left_iris_found):
+            relative_left_iris_default = calculateRelative(left_eye, left_iris_default)
+            gazeDirection = detectGaze(left_iris_default, left_iris_center)
+            if(gazeDirection == 'gaze_left'):
+                microgear.chat("DigitalOUTPUT_HTML_web","camera_left")
+                print('left')
+            elif(gazeDirection == 'gaze_right'):
+                microgear.chat("DigitalOUTPUT_HTML_web","camera_right")
+                print('right')
+            else:
+                microgear.chat("DigitalOUTPUT_HTML_web","camera_center")
+        
+#             print('horizontal: ',gazeDirection,end='\r')
+#         if(calibrated): 
+#             print('vertical: ',verticalDirection,end='\s\r')
+        #check eye size for downward
+     
+    # show the frame
+    cv2.imshow("Frame", frame)
+    if(calibrated):
+        if(left_iris_found): (cv2.circle(left_eye_color, relative_left_iris_default, 1, (0, 0, 255), 3))
+    if(face_found): 
+        cv2.imshow('Left Eye',left_eye_color)
+#         cv2.imshow('Right Eye',right_eye_color)
+    key = cv2.waitKey(1) & 0xFF
+ 
+    # if the `q` key was pressed, break from the loop
+    if key == ord("q"):
+        break
+# do a bit of cleanup
+cv2.destroyAllWindows()
+videoInput.release()
+microgear.disconnect()
