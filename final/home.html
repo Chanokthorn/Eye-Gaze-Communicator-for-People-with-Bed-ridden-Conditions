@@ -1,0 +1,211 @@
+<font face="comfortaa"><script src="https://cdn.netpie.io/microgear.js"></script>
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" integrity="sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" crossorigin="anonymous">
+<style>
+ .column {
+     float: left;
+     width: 50%;
+ }
+</style>
+<script>
+   var isComing = 0;
+</script>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <a class="navbar-brand" href="#">HW Syn Lab-I</a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  <div class="collapse navbar-collapse" id="navbarSupportedContent">
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item active">
+        <a class="nav-link" href="home.html">Home</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="about_us.html">About us</a>
+      </li>
+
+    </ul>
+    <form class="form-inline my-2 my-lg-0">
+      <input class="form-control mr-sm-2" type="search" placeholder="the beside button can't" aria-label="Search">
+      <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+    </form>
+  </div>
+</nav>
+
+<div class="column">
+ <div class="jumbotron">
+  <h1 id="connected_NETPIE"><font face="comfortaa">Not connect yet</font></h1><br>
+  <p><id="AlertStatus">&emsp;No any alert here.</p>
+  <p><id="PythonMessage">&emsp;No any Python message too!</p>
+  <p><id="check1">&emsp;0&emsp;<id="check2">0<p>
+  <button type="button" class="btn btn-primary btn-lg" onclick="switchStopAlertPress(1);pause();">Stop alert</button>
+
+ </div>
+</div>
+<div class="column">
+ <br> <br> <br> <br> <br> <br> <br> <br>
+ <center>
+  <audio id="alertVideo1" controls loop>
+     <source src="video1.mp3">
+  </audio>
+  <audio id="alertVideo2" controls loop>
+     <source src="video2.mp3">
+  </audio>
+  <audio id="alertVideo3" controls loop>
+     <source src="video3.mp3">
+  </audio>
+  <audio id="alertVideo4" controls>
+     <source src="video4.mp3">
+  </audio>
+  <br><br>
+  <button type="button" class="btn btn-outline-primary" onclick="testPlay(1)">Play 1</button>
+  &emsp;&emsp;&emsp;&emsp;&emsp;
+  <button type="button" class="btn btn-outline-primary" onclick="testPlay(2)">Play 2</button>
+  &emsp;&emsp;&emsp;&emsp;&emsp;
+  <button type="button" class="btn btn-outline-primary" onclick="testPlay(3)">Play 3</button>
+  &emsp;&emsp;&emsp;&emsp;&emsp;
+  <button type="button" class="btn btn-outline-primary" onclick="testPlay(4)">Play 4</button>
+  <br><br>
+  <a id="songStatus">Nothing is playing.</a>
+ </center>
+</div>
+
+<script>
+  const APPID = "Helloworld01";
+  const KEY = "7CK6AdFSeDCP7Ht";
+  const SECRET = "M4mxipmS1r23WoIfL1JF5J9hn";
+
+  const ALIAS = "DigitalOUTPUT_HTML_web";
+  const thing1 = "NodeMCU1";
+
+  var c1 = document.getElementById("check1");
+  var c2 = document.getElementById("check2");
+
+  // stop-alert-button logic
+  function switchStopAlertPress(logic) {
+    if(logic == 1 ) {
+      isComing = 0;
+      microgear.chat(thing1,"html_StopAlert");
+      document.getElementById("songStatus").innerHTML =  "Nothing is playing";
+    }
+  }
+
+  var vid1 = document.getElementById("alertVideo1");
+  var vid2 = document.getElementById("alertVideo2");
+  var vid3 = document.getElementById("alertVideo3");
+  var vid4 = document.getElementById("alertVideo4");
+
+  function play(token) {
+    pause();
+    if(token==1 && isComing==0) {
+      document.getElementById("songStatus").innerHTML =  "Song-1 is playing";
+      vid1.play();
+    }
+    else if(token==2 && isComing==0) {
+      document.getElementById("songStatus").innerHTML =  "Song-2 is playing";
+      vid2.play();
+    }
+    else if(token==3 && isComing==0) {
+      document.getElementById("songStatus").innerHTML =  "Song-3 is playing";
+      vid3.play();
+    }
+    else if(token==4 && isComing==0) {
+      document.getElementById("songStatus").innerHTML =  "Song-4 is playing";
+       vid4.play();
+       isComing = 1;
+    }
+  }
+  
+  function pause() {
+    vid1.pause();
+    vid2.pause();
+    vid3.pause();
+    vid4.pause();
+  }
+
+  // test audio button
+  function testPlay(token) {
+    play(token);
+    console.log('kuay');
+  }
+  var microgear = Microgear.create({
+    key: KEY,
+    secret: SECRET,
+    alias : ALIAS
+  });
+
+  
+  microgear.on('message', function(topic,data) {
+    if(data=="nodeMCU_alertON"){
+      document.getElementById("AlertStatus").innerHTML =  "Alert Status : Help! helpppp!!";
+      c1.innerHTML="1";
+    }
+    else if(data=="nodeMCU_StopAlert") {
+      document.getElementById("AlertStatus").innerHTML =  "Alert Status : Alert was stopped";
+      c1.innerHTML="0";
+    }
+    else if(data=="camera_left") {
+      document.getElementById("PythonMessage").innerHTML =  "Python Message : left";
+      c2.innerHTML="1";
+// chane all c2.lkjkldadlkmdlm to play(token)
+    }
+	
+    else if(data=="camera_right") {
+      document.getElementById("PythonMessage").innerHTML =  "Python Message : right";
+      c2.innerHTML="2";
+    }
+
+    else if(data=="camera_up") {
+      document.getElementById("PythonMessage").innerHTML =  "Python Message : up";
+      c2.innerHTML="3";
+    }
+    else if(data=="camera_center") {
+      document.getElementById("PythonMessage").innerHTML =  "Python Message : null";
+      c2.innerHTML="4";
+    }
+    else{
+      c2.innerHTML="0";
+    }
+
+    if(c1.innerHTML=="1" && c2.innerHTML=="1") {
+      document.getElementById("PythonMessage").innerHTML =  "LEFT";
+      play(1);
+    }
+    else if(c1.innerHTML=="1" && c2.innerHTML=="2") {
+      document.getElementById("PythonMessage").innerHTML =  "RIGHT";
+      play(2);
+    }
+    else if(c1.innerHTML=="1" && c2.innerHTML=="3") {
+      document.getElementById("PythonMessage").innerHTML =  "UP";
+      play(3);
+    }
+    else if(c1.innerHTML=="1" && c2.innerHTML=="4") {
+      document.getElementById("PythonMessage").innerHTML =  "NULL";
+      play(4);
+    }
+    else{
+      pause();
+    }
+
+  });
+
+  microgear.on('connected', function() {
+    microgear.setAlias(ALIAS);
+    document.getElementById("connected_NETPIE").innerHTML = "Connected to NETPIE"
+  });
+
+  microgear.on('present', function(event) {
+    console.log(event);
+  });
+
+  microgear.on('absent', function(event) {
+    console.log(event);
+  });
+
+  microgear.resettoken(function(err) {
+    microgear.connect(APPID);
+  });
+
+</script>
+</font>
